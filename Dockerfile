@@ -2,7 +2,7 @@ FROM ubuntu:14.04
 
 # Set version and github repo which you want to build from
 ENV GITHUB_OWNER druid-io
-ENV DRUID_VERSION 0.9.2
+ENV DRUID_VERSION 0.10.1
 ENV ZOOKEEPER_VERSION 3.4.11
 
 # Java 8
@@ -60,6 +60,12 @@ RUN mvn -U -B org.codehaus.mojo:versions-maven-plugin:2.1:set -DgenerateBackupPo
 
 WORKDIR /
 
+# install swiv
+RUN apt-get update
+RUN apt-get -y install nodejs npm curl nano
+RUN npm i -g yahoo-swiv
+RUN ln -s /usr/bin/nodejs /usr/bin/node
+
 # Setup metadata store and add sample data
 ADD sample-data.sql sample-data.sql
 RUN /etc/init.d/mysql start \
@@ -78,12 +84,14 @@ RUN /etc/init.d/mysql start \
 ADD supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Expose ports:
+# - 8080: HTTP (swiv)
 # - 8081: HTTP (coordinator)
 # - 8082: HTTP (broker)
 # - 8083: HTTP (historical)
 # - 8090: HTTP (overlord)
 # - 3306: MySQL
 # - 2181 2888 3888: ZooKeeper
+EXPOSE 8080
 EXPOSE 8081
 EXPOSE 8082
 EXPOSE 8083
@@ -92,4 +100,4 @@ EXPOSE 3306
 EXPOSE 2181 2888 3888
 
 WORKDIR /var/lib/druid
-ENTRYPOINT export HOSTIP="$(resolveip -s $HOSTNAME)" && exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+ENTRYPOINT export HOSTIP="$(resolveip -s $HOSTNAME)" && exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf && swiv --druid localhost:8082 -p 8080
